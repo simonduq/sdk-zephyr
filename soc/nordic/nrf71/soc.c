@@ -161,6 +161,21 @@ static void ipct_configuration(void)
 	/* Grant secure access to IPCT, since NS by default */
 	nrf_spu_periph_perm_secattr_set(NRF_SPU10, 13, true);
 }
+
+#if defined(CONFIG_SOC_NRF7120_ENGA_CPUAPP)
+/*
+ * Undocumented workaround for this engineering sample: without this write, GPIO
+ * port P4 does not respond. Not in the MDK yet (offset 0x34 falls in P4's
+ * reserved gap, ahead of PIN_CNF[]), so it is applied directly here instead of
+ * through a named register; switch to an MDK-provided name once one exists.
+ */
+static void p4_port_power_patch(void)
+{
+	uint32_t *pwr_ptr_wr = (uint32_t *)(NRF_P4_S_BASE | 0x34);
+
+	*pwr_ptr_wr = 0x0003;
+}
+#endif /* CONFIG_SOC_NRF7120_ENGA_CPUAPP */
 #endif /* CONFIG_TRUSTED_EXECUTION_NONSECURE */
 
 #if defined(CONFIG_SOC_NRF71_WIFI_BOOT)
@@ -352,6 +367,10 @@ void soc_early_init_hook(void)
 	mpc_configuration();
 	grtc_configuration();
 	ipct_configuration();
+
+#if defined(CONFIG_SOC_NRF7120_ENGA_CPUAPP)
+	p4_port_power_patch();
+#endif
 #endif
 
 #if (defined(NRF_APPLICATION) && !defined(CONFIG_TRUSTED_EXECUTION_NONSECURE)) || \
