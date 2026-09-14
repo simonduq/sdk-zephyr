@@ -23,6 +23,8 @@ manifest:
       url-base: https://github.com/zephyrproject-rtos
     - name: babblesim
       url-base: https://github.com/BabbleSim
+    - name: simonduq
+      url-base: https://github.com/simonduq
 
   group-filter: [-babblesim, -optional, -testing]
 
@@ -203,7 +205,8 @@ manifest:
       groups:
         - hal
     - name: hal_nordic
-      revision: 4387c79cebd31927fb1ea7d64bee11728ae8041f
+      remote: simonduq
+      revision: nrf71dk_bringup
       path: modules/hal/nordic
       groups:
         - hal
