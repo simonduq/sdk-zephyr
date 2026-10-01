@@ -16,6 +16,7 @@ LOG_MODULE_DECLARE(conn_mgr, CONFIG_NET_CONNECTION_MANAGER_LOG_LEVEL);
 static struct net_mgmt_event_callback iface_events_cb;
 static struct net_mgmt_event_callback ipv6_events_cb;
 static struct net_mgmt_event_callback ipv4_events_cb;
+static struct net_mgmt_event_callback dns_events_cb;
 
 static void conn_mgr_iface_events_handler(struct net_mgmt_event_callback *cb,
 					  uint64_t mgmt_event,
@@ -170,6 +171,25 @@ void conn_mgr_ipv4_events_handler(struct net_mgmt_event_callback *cb,
 }
 #endif /* CONFIG_NET_IPV4 */
 
+static void conn_mgr_dns_events_handler(struct net_mgmt_event_callback *cb,
+					uint64_t mgmt_event,
+					struct net_if *iface)
+{
+	ARG_UNUSED(cb);
+	ARG_UNUSED(iface);
+
+	NET_DBG("%s event 0x%" PRIx64 " received", "DNS", mgmt_event);
+
+	if ((mgmt_event & CONN_MGR_DNS_EVENTS_MASK) != mgmt_event) {
+		return;
+	}
+
+	/* The resolver may hold its context lock while emitting this event, and the monitor
+	 * thread takes that lock to inspect the server list, so do not lock anything here.
+	 */
+	k_sem_give(&conn_mgr_mon_updated);
+}
+
 void conn_mgr_init_events_handler(void)
 {
 	net_mgmt_init_event_callback(&iface_events_cb,
@@ -189,5 +209,12 @@ void conn_mgr_init_events_handler(void)
 					     conn_mgr_ipv4_events_handler,
 					     CONN_MGR_IPV4_EVENTS_MASK);
 		net_mgmt_add_event_callback(&ipv4_events_cb);
+	}
+
+	if (IS_ENABLED(CONFIG_DNS_RESOLVER)) {
+		net_mgmt_init_event_callback(&dns_events_cb,
+					     conn_mgr_dns_events_handler,
+					     CONN_MGR_DNS_EVENTS_MASK);
+		net_mgmt_add_event_callback(&dns_events_cb);
 	}
 }

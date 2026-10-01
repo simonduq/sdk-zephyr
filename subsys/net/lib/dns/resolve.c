@@ -2770,6 +2770,7 @@ int dns_resolve_name(struct dns_resolve_context *ctx,
 static int dns_server_close(struct dns_resolve_context *ctx,
 			    int server_idx)
 {
+	struct net_sockaddr server_addr;
 	struct net_if *iface;
 	int closed_sock;
 
@@ -2788,28 +2789,32 @@ static int dns_server_close(struct dns_resolve_context *ctx,
 
 	(void)dns_dispatcher_unregister(&ctx->servers[server_idx].dispatcher);
 
-	if (ctx->servers[server_idx].dns_server.sa_family == NET_AF_INET6) {
-		iface = net_if_ipv6_select_src_iface(
-			&net_sin6(&ctx->servers[server_idx].dns_server)->sin6_addr);
+	server_addr = ctx->servers[server_idx].dns_server;
+
+	/* Release the slot before emitting the event, so that listeners inspecting the server
+	 * list in response to NET_EVENT_DNS_SERVER_DEL no longer see this server.
+	 */
+	ctx->servers[server_idx].sock = -1;
+	ctx->servers[server_idx].dns_server.sa_family = 0;
+	ctx->servers[server_idx].if_index = 0;
+
+	if (server_addr.sa_family == NET_AF_INET6) {
+		iface = net_if_ipv6_select_src_iface(&net_sin6(&server_addr)->sin6_addr);
 	} else {
-		iface = net_if_ipv4_select_src_iface(
-			&net_sin(&ctx->servers[server_idx].dns_server)->sin_addr);
+		iface = net_if_ipv4_select_src_iface(&net_sin(&server_addr)->sin_addr);
 	}
 
 	if (IS_ENABLED(CONFIG_NET_MGMT_EVENT_INFO)) {
 		net_mgmt_event_notify_with_info(
 			NET_EVENT_DNS_SERVER_DEL,
 			iface,
-			(void *)&ctx->servers[server_idx].dns_server,
+			(void *)&server_addr,
 			sizeof(struct net_sockaddr));
 	} else {
 		net_mgmt_event_notify(NET_EVENT_DNS_SERVER_DEL, iface);
 	}
 
 	zsock_close(closed_sock);
-
-	ctx->servers[server_idx].sock = -1;
-	ctx->servers[server_idx].dns_server.sa_family = 0;
 
 	return 0;
 }

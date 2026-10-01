@@ -201,6 +201,8 @@ enum {
 	NET_EVENT_L4_CMD_VPN_PEER_ADD_VAL,
 	NET_EVENT_L4_CMD_VPN_PEER_DEL_VAL,
 	NET_EVENT_L4_CMD_DNS_SERVERS_RECONFIGURED_VAL,
+	NET_EVENT_L4_CMD_DNS_READY_VAL,
+	NET_EVENT_L4_CMD_DNS_LOST_VAL,
 
 	NET_EVENT_L4_CMD_MAX
 };
@@ -225,6 +227,8 @@ enum net_event_l4_cmd {
 	NET_MGMT_CMD(NET_EVENT_L4_CMD_VPN_PEER_ADD),
 	NET_MGMT_CMD(NET_EVENT_L4_CMD_VPN_PEER_DEL),
 	NET_MGMT_CMD(NET_EVENT_L4_CMD_DNS_SERVERS_RECONFIGURED),
+	NET_MGMT_CMD(NET_EVENT_L4_CMD_DNS_READY),
+	NET_MGMT_CMD(NET_EVENT_L4_CMD_DNS_LOST),
 };
 
 /** @endcond */
@@ -470,6 +474,24 @@ enum net_event_l4_cmd {
  */
 #define NET_EVENT_DNS_SERVERS_RECONFIGURED		\
 	(NET_EVENT_L4_BASE | NET_EVENT_L4_CMD_DNS_SERVERS_RECONFIGURED)
+
+/** Event emitted when name resolution becomes available.
+ *
+ * Name resolution is considered available when at least one unicast DNS
+ * server is configured in the default resolver context and an L4-ready
+ * interface of the same address family (or the interface the server is bound
+ * to) exists, or when an offloaded interface that does its own name resolution
+ * is L4-ready.
+ *
+ * This only means a DNS server is configured and reachable in principle; it does
+ * not guarantee the server answers.
+ */
+#define NET_EVENT_L4_DNS_READY				\
+	(NET_EVENT_L4_BASE | NET_EVENT_L4_CMD_DNS_READY)
+
+/** Event emitted when name resolution is no longer available. */
+#define NET_EVENT_L4_DNS_LOST				\
+	(NET_EVENT_L4_BASE | NET_EVENT_L4_CMD_DNS_LOST)
 
 /** Event emitted when the system hostname is changed. */
 #define NET_EVENT_HOSTNAME_CHANGED			\
