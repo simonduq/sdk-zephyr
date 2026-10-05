@@ -10,3 +10,12 @@ tests:
   net.dhcpv6.preempt:
     extra_configs:
       - CONFIG_NET_TC_THREAD_PREEMPTIVE=y
+  net.dhcpv6.ra:
+    extra_configs:
+      - CONFIG_NET_TC_THREAD_COOPERATIVE=y
+      - CONFIG_NET_IPV6_ND=y
+  net.dhcpv6.dns:
+    extra_configs:
+      - CONFIG_NET_TC_THREAD_COOPERATIVE=y
+      - CONFIG_DNS_RESOLVER=y
+      - CONFIG_NET_MAX_CONTEXTS=8
