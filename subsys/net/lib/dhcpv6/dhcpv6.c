@@ -2353,6 +2353,8 @@ static void dhcpv6_timeout(struct k_work *work)
 	}
 }
 
+static void dhcpv6_stop(struct net_if *iface);
+
 static void dhcpv6_iface_event_handler(struct net_mgmt_event_callback *cb,
 				       uint64_t mgmt_event, struct net_if *iface)
 {
@@ -2370,7 +2372,13 @@ static void dhcpv6_iface_event_handler(struct net_mgmt_event_callback *cb,
 		goto out;
 	}
 
-	if (mgmt_event == NET_EVENT_IF_DOWN) {
+	if (mgmt_event == NET_EVENT_IF_DOWN && iface->config.dhcpv6.auto_started) {
+		/* The next network decides again with its own Router
+		 * Advertisement whether DHCPv6 is needed.
+		 */
+		NET_DBG("Interface %p going down, stopping DHCPv6", iface);
+		dhcpv6_stop(iface);
+	} else if (mgmt_event == NET_EVENT_IF_DOWN) {
 		NET_DBG("Interface %p going down", iface);
 		dhcpv6_set_timeout(iface, UINT64_MAX);
 
@@ -2413,23 +2421,22 @@ static void dhcpv6_generate_client_duid(struct net_if *iface)
 	clientid->length = DHCPV6_DUID_LL_HEADER_SIZE + lladdr->len;
 }
 
-/* DHCPv6 public API */
-
-void net_dhcpv6_start(struct net_if *iface, struct net_dhcpv6_params *params)
+static void dhcpv6_start(struct net_if *iface, struct net_dhcpv6_params *params,
+			 bool auto_started)
 {
-	k_mutex_lock(&lock, K_FOREVER);
-
 	if (iface->config.dhcpv6.state != NET_DHCPV6_DISABLED) {
 		NET_ERR("DHCPv6 already running on iface %p, state %s", iface,
 			net_dhcpv6_state_name(iface->config.dhcpv6.state));
-		goto out;
+		return;
 	}
 
 	net_mgmt_event_notify(NET_EVENT_IPV6_DHCP_START, iface);
 
-	NET_DBG("Starting DHCPv6 on iface %p", iface);
+	NET_DBG("Starting DHCPv6 on iface %p%s", iface,
+		auto_started ? " (started by RA)" : "");
 
 	iface->config.dhcpv6.params = *params;
+	iface->config.dhcpv6.auto_started = auto_started;
 
 	if (sys_slist_is_empty(&dhcpv6_ifaces)) {
 		net_mgmt_add_event_callback(&dhcpv6_mgmt_cb);
@@ -2448,15 +2455,10 @@ void net_dhcpv6_start(struct net_if *iface, struct net_dhcpv6_params *params)
 	dhcpv6_generate_client_duid(iface);
 	dhcpv6_enter_state(iface, NET_DHCPV6_INIT);
 	dhcpv6_reschedule();
-
-out:
-	k_mutex_unlock(&lock);
 }
 
-void net_dhcpv6_stop(struct net_if *iface)
+static void dhcpv6_stop(struct net_if *iface)
 {
-	k_mutex_lock(&lock, K_FOREVER);
-
 	switch (iface->config.dhcpv6.state) {
 	case NET_DHCPV6_DISABLED:
 		NET_INFO("DHCPv6 already disabled on iface %p", iface);
@@ -2492,18 +2494,77 @@ void net_dhcpv6_stop(struct net_if *iface)
 		break;
 	}
 
+	iface->config.dhcpv6.auto_started = false;
+
 	net_mgmt_event_notify(NET_EVENT_IPV6_DHCP_STOP, iface);
+}
+
+/* DHCPv6 public API */
+
+void net_dhcpv6_start(struct net_if *iface, struct net_dhcpv6_params *params)
+{
+	k_mutex_lock(&lock, K_FOREVER);
+
+	/* Explicit configuration takes precedence over the automatic one. */
+	if (iface->config.dhcpv6.auto_started) {
+		dhcpv6_stop(iface);
+	}
+
+	iface->config.dhcpv6.auto_start_disabled = false;
+	dhcpv6_start(iface, params, false);
+
+	k_mutex_unlock(&lock);
+}
+
+void net_dhcpv6_stop(struct net_if *iface)
+{
+	k_mutex_lock(&lock, K_FOREVER);
+
+	dhcpv6_stop(iface);
+	iface->config.dhcpv6.auto_start_disabled = true;
 
 	k_mutex_unlock(&lock);
 }
 
 void net_dhcpv6_restart(struct net_if *iface)
 {
-	struct net_dhcpv6_params params = iface->config.dhcpv6.params;
+	struct net_dhcpv6_params params;
+	bool auto_started;
 
-	net_dhcpv6_stop(iface);
-	net_dhcpv6_start(iface, &params);
+	k_mutex_lock(&lock, K_FOREVER);
+
+	params = iface->config.dhcpv6.params;
+	auto_started = iface->config.dhcpv6.auto_started;
+
+	dhcpv6_stop(iface);
+	iface->config.dhcpv6.auto_start_disabled = false;
+	dhcpv6_start(iface, &params, auto_started);
+
+	k_mutex_unlock(&lock);
 }
+
+#if defined(CONFIG_NET_DHCPV6_START_ON_RA)
+void net_dhcpv6_handle_ra(struct net_if *iface, bool managed, bool other)
+{
+	/* RFC 4861 ch. 4.2, M flag set makes the O flag redundant. */
+	struct net_dhcpv6_params params = {
+		.request_addr = managed,
+	};
+
+	if (!managed && !other) {
+		return;
+	}
+
+	k_mutex_lock(&lock, K_FOREVER);
+
+	if (iface->config.dhcpv6.state == NET_DHCPV6_DISABLED &&
+	    !iface->config.dhcpv6.auto_start_disabled) {
+		dhcpv6_start(iface, &params, true);
+	}
+
+	k_mutex_unlock(&lock);
+}
+#endif /* CONFIG_NET_DHCPV6_START_ON_RA */
 
 int net_dhcpv6_init(void)
 {

@@ -452,6 +452,12 @@ struct net_if_dhcpv6 {
 	/** Retransmission counter. */
 	uint8_t retransmissions;
 
+	/** Client was started automatically by a Router Advertisement. */
+	bool auto_started : 1;
+
+	/** Automatic start disabled by an explicit stop. */
+	bool auto_start_disabled : 1;
+
 	/** Transaction ID for current exchange. */
 	uint8_t tid[DHCPV6_TID_SIZE];
 
