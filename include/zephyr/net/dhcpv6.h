@@ -59,7 +59,13 @@ struct net_if;
 
 /** @endcond */
 
-/** @brief DHCPv6 client configuration parameters. */
+/**
+ * @brief DHCPv6 client configuration parameters.
+ *
+ * If neither address nor prefix is requested, the client operates in stateless
+ * mode (RFC 8415, ch. 6.1) and only obtains configuration information (such as
+ * DNS servers) with Information-request messages.
+ */
 struct net_dhcpv6_params {
 	bool request_addr : 1; /**< Request IPv6 address. */
 	bool request_prefix : 1; /**< Request IPv6 prefix. */
@@ -71,7 +77,9 @@ struct net_dhcpv6_params {
  *  @details Start DHCPv6 client on a given interface. DHCPv6 client will start
  *  negotiation for IPv6 address and/or prefix, depending on the configuration.
  *  Once the negotiation is complete, IPv6 address/prefix details will be added
- *  to the interface.
+ *  to the interface. If neither address nor prefix is requested, the client
+ *  only requests configuration information (stateless DHCPv6) and refreshes it
+ *  periodically.
  *
  *  @param iface A valid pointer to a network interface
  *  @param params DHCPv6 client configuration parameters.

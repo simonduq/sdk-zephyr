@@ -62,6 +62,13 @@
 #define DHCPV6_REN_MAX_RT 600000 /* Max Renew timeout value, milliseconds */
 #define DHCPV6_REB_TIMEOUT 10000 /* Initial Rebind timeout, milliseconds */
 #define DHCPV6_REB_MAX_RT 600000 /* Max Rebind timeout value, milliseconds */
+#define DHCPV6_INF_MAX_DELAY 1000 /* Max delay of first Information-request, milliseconds */
+#define DHCPV6_INF_TIMEOUT 1000 /* Initial Information-request timeout, milliseconds */
+#define DHCPV6_INF_MAX_RT 3600000 /* Max Information-request timeout value, milliseconds */
+#define DHCPV6_IRT_DEFAULT 86400 /* Default information refresh time, seconds */
+#define DHCPV6_IRT_MINIMUM 600 /* Min information refresh time, seconds */
+
+#define DHCPV6_OPTION_INFORMATION_REFRESH_TIME_SIZE 4
 
 /* DUID structures */
 struct dhcpv6_duid_llt {

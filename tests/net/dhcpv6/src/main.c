@@ -833,12 +833,14 @@ ZTEST(dhcpv6_tests, test_input_reply)
 		case NET_DHCPV6_REQUESTING:
 		case NET_DHCPV6_RENEWING:
 		case NET_DHCPV6_REBINDING:
+		case NET_DHCPV6_INFO_REQUESTING:
 			zassert_equal(result, NET_OK, "Message should've been processed");
 
-			/* Confirm is an exception, as it does not update
-			 * address on an interface (only status OK is expected).
+			/* Confirm and Information-request are exceptions, as
+			 * they do not update address on an interface.
 			 */
-			if (state == NET_DHCPV6_CONFIRMING) {
+			if (state == NET_DHCPV6_CONFIRMING ||
+			    state == NET_DHCPV6_INFO_REQUESTING) {
 				break;
 			}
 
